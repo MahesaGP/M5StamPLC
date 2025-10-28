@@ -11,6 +11,7 @@
 #include <M5GFX.h>
 #include <M5Unified.hpp>
 #include <driver/twai.h>
+#include <driver/ledc.h>
 #include <mbcontroller.h>
 
 namespace m5 {
@@ -154,6 +155,7 @@ protected:
     AW9523_Class* _io_expander_b = nullptr;  // Controls plc relays, plc inputs
     Config_t _config;
 
+    void tone_init();
     void i2c_init();
     void io_expander_a_init();
     void io_expander_b_init();

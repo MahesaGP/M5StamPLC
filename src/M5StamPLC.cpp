@@ -20,11 +20,18 @@ using namespace m5;
 M5_STAMPLC M5StamPLC;
 
 static const char* TAG = "M5StamPLC";
+static QueueHandle_t _tone_queue;
+
+struct Tone_t {
+    uint32_t frequency;
+    uint32_t duration;
+};
 
 void M5_STAMPLC::begin()
 {
     M5.begin();
 
+    tone_init();
     i2c_init();
     io_expander_a_init();
     io_expander_b_init();
@@ -272,6 +279,11 @@ void M5_STAMPLC::tone(unsigned int frequency, unsigned long duration)
 {
 #ifdef ARDUINO_ARCH_ESP32
     ::tone(STAMPLC_PIN_BUZZ, frequency, duration);
+#else
+    static Tone_t tone;
+    tone.frequency = frequency;
+    tone.duration = duration;
+    xQueueSend(_tone_queue, (void*) &tone, portMAX_DELAY);
 #endif
 }
 
@@ -279,6 +291,61 @@ void M5_STAMPLC::noTone()
 {
 #ifdef ARDUINO_ARCH_ESP32
     ::noTone(STAMPLC_PIN_BUZZ);
+#else
+    static const Tone_t tone = {0, 0};
+    xQueueSend(_tone_queue, (void*) &tone, portMAX_DELAY);
+#endif
+}
+
+static void tone_daemon(void* param)
+{
+    Tone_t tone;
+    ledc_timer_config_t t_config;
+
+    while (1) {
+        if (!xQueueReceive(_tone_queue, &tone, portMAX_DELAY)) {
+            continue;
+        };
+
+        t_config.speed_mode = LEDC_LOW_SPEED_MODE;
+        t_config.duty_resolution = LEDC_TIMER_10_BIT;
+        t_config.timer_num = LEDC_TIMER_0;
+        t_config.freq_hz = tone.frequency;
+        t_config.clk_cfg = LEDC_AUTO_CLK;
+
+        if (tone.frequency > 0) {
+            ESP_ERROR_CHECK_WITHOUT_ABORT(ledc_timer_config(&t_config));
+            ESP_ERROR_CHECK_WITHOUT_ABORT(ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, 0x1ff));
+            ESP_ERROR_CHECK_WITHOUT_ABORT(ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0));
+        }
+        else {
+            ESP_ERROR_CHECK_WITHOUT_ABORT(ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, 0x0));
+            ESP_ERROR_CHECK_WITHOUT_ABORT(ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0));
+        }
+        if (tone.duration > 0) {
+            delay(tone.duration);
+            ESP_ERROR_CHECK_WITHOUT_ABORT(ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, 0x0));
+            ESP_ERROR_CHECK_WITHOUT_ABORT(ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0));
+        }
+    }
+}
+
+void M5_STAMPLC::tone_init()
+{
+#ifndef ARDUINO_ARCH_ESP32
+    ledc_channel_config_t c_config;
+
+    c_config.gpio_num = STAMPLC_PIN_BUZZ;
+    c_config.speed_mode = LEDC_LOW_SPEED_MODE;
+    c_config.channel = LEDC_CHANNEL_0;
+    c_config.intr_type = LEDC_INTR_DISABLE;
+    c_config.timer_sel = LEDC_TIMER_0;
+    c_config.duty = 0;
+    c_config.hpoint = 0;
+    ESP_ERROR_CHECK(ledc_channel_config(&c_config));
+
+    _tone_queue = xQueueCreate(128, sizeof(Tone_t));
+    xTaskCreate(&tone_daemon, "tone", 4000, NULL, 15, NULL);
 #endif
 }
 
