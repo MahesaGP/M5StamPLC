@@ -8,7 +8,12 @@
 #include "utils/modbus_params/modbus_params.h"
 #include <cstring>
 #include <mbcontroller.h>
+
+#ifdef ARDUINO_ARCH_ESP32
 #include <SD.h>
+#else
+#define delay(ms) vTaskDelay(pdMS_TO_TICKS(ms))
+#endif
 
 using namespace m5;
 
@@ -243,9 +248,11 @@ void M5_STAMPLC::rx8130_init()
 /* -------------------------------------------------------------------------- */
 void M5_STAMPLC::sd_card_init()
 {
+#ifdef ARDUINO_ARCH_ESP32
     if (!SD.begin(STAMPLC_PIN_SD_CS, SPI, 4000000)) {
         ESP_LOGE(TAG, "sd card init failed");
     }
+#endif
 }
 
 void M5_STAMPLC::setRtcTime(struct tm* time)
@@ -263,12 +270,16 @@ void M5_STAMPLC::getRtcTime(struct tm* time)
 /* -------------------------------------------------------------------------- */
 void M5_STAMPLC::tone(unsigned int frequency, unsigned long duration)
 {
+#ifdef ARDUINO_ARCH_ESP32
     ::tone(STAMPLC_PIN_BUZZ, frequency, duration);
+#endif
 }
 
 void M5_STAMPLC::noTone()
 {
+#ifdef ARDUINO_ARCH_ESP32
     ::noTone(STAMPLC_PIN_BUZZ);
+#endif
 }
 
 /* -------------------------------------------------------------------------- */
@@ -399,7 +410,7 @@ static void modbus_daemon(void* param)
 void M5_STAMPLC::modbus_slave_init()
 {
     // Using UART_NUM_1 for RS485
-    Serial1.end();
+    // Serial1.end();
 
     mb_communication_info_t comm_info;       // Modbus communication parameters
     mb_register_area_descriptor_t reg_area;  // Modbus register area descriptor structure
