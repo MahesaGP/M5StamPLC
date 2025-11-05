@@ -293,6 +293,7 @@ void M5_STAMPLC::noTone()
     ::noTone(STAMPLC_PIN_BUZZ);
 #else
     static const Tone_t tone = {0, 0};
+    xQueueReset(_tone_queue);
     xQueueSend(_tone_queue, (void*) &tone, portMAX_DELAY);
 #endif
 }
