@@ -1,0 +1,9 @@
+dependencies:
+  idf:
+    version: "*"
+
+  espressif/esp-modbus:
+    version: "^2.1.2"
+    require: public
+    rules:
+    - if: "idf_version >=5.0"
