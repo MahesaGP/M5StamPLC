@@ -9,8 +9,10 @@ file(GLOB SRCS
 
 if(ARDUINO_ARCH_ESP32)
      list(APPEND COMPONENT_REQUIRES M5Unified arduino)
-else()
+elseif(IDF_VERSION_MAJOR LESS 5)
      list(APPEND COMPONENT_REQUIRES M5Unified freemodbus)
+else()
+     list(APPEND COMPONENT_REQUIRES M5Unified)
 endif()
 
 idf_component_register(SRCS ${SRCS}
