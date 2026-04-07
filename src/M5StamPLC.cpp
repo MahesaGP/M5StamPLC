@@ -334,7 +334,7 @@ static void tone_daemon(void* param)
 void M5_STAMPLC::tone_init()
 {
 #ifndef ARDUINO_ARCH_ESP32
-    ledc_channel_config_t c_config;
+    ledc_channel_config_t c_config = {};
 
     c_config.gpio_num = STAMPLC_PIN_BUZZ;
     c_config.speed_mode = LEDC_LOW_SPEED_MODE;
